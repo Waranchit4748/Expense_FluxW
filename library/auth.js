@@ -17,33 +17,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 password: { label: 'Password', type: 'password' },
             },
             async authorize(credentials) {
-                if (!credentials?.email || !credentials?.password) {
-                    throw new Error("Email and password are required");
-                }
+                try {
+                    if (!credentials?.email || !credentials?.password) {
+                        return null;
+                    }
 
-                await connectDB();
-                const email = String(credentials.email).toLowerCase().trim();
-                const user = await User.findOne({ email }).select("+password");
+                    await connectDB();
+                    const email = String(credentials.email).trim().toLowerCase();
+                    const user = await User.findOne({ email }).select("+password");
 
-                if (!user) {
+                    if (!user) {
+                        return null;
+                    }
+
+                    if (user.isBanned) {
+                        return null;
+                    }
+
+                    const isValid = await user.comparePassword(String(credentials.password));
+                    if (!isValid) {
+                        return null;
+                    }
+
+                    return {
+                        id: user._id.toString(),
+                        name: user.name,
+                        email: user.email,
+                        role: user.role
+                    };
+                } catch (error) {
+                    console.error("Authorize Error:", error);
                     return null;
                 }
-
-                if (user.isBanned) {
-                    return null;
-                }
-
-                const isValid = await user.comparePassword(credentials.password);
-                if (!isValid) {
-                    return null;
-                }
-
-                return {
-                    id: user._id.toString(),
-                    name: user.name,
-                    email: user.email,
-                    role: user.role
-                };
             },
         }),
     ],
@@ -65,7 +70,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return token;
         },
         async session({ session, token }) {
-            if (token) {
+            if (session.user) {
                 session.user.id = token.id;
                 session.user.role = token.role;
                 session.user.name = token.name;
