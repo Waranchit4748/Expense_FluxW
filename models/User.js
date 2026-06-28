@@ -54,7 +54,7 @@ const UserSchema = new Schema(
         },
     },
     {
-        timestamps: true, // for createAt, updateAt
+        timestamps: true, // for createdAt, updateAt
     }
 );
 
